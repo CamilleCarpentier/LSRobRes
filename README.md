@@ -29,5 +29,6 @@ The `main.py` file is divided into three parts, allowing to reproduce the result
   
   *The functions used in this section are defined in the `resilience.py` file.*
 
+Written in Python 3.7.6 using 3 libraries: numpy, matplotlib and collections.
 
 For any question or comment, please contact: Camille Carpentier via camille.carpentier@unamur.be 
