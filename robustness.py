@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-
 Code accompanying the manuscript:
-"A new link-species relationship connects ecosystem structure and stability"
+"Reinterpreting the relationship between number of species and 
+number of links connects community structure and stability"
 
 -------
-v. 0.1 ; August 2020
+v. 0.2 ; March 2021
 -------
 
 For any question or comment, please contact:
@@ -27,13 +27,17 @@ from collections import namedtuple
 
 def R2deltaS(sseq, S, b, z):
     """
-    Computes the average number of extinctions occurring after the removal of one species.
-    Returns the coefficient of determination of its prediction based on Equation 6.
+    Computes the average number of extinctions occurring after the removal of 
+    one species.
+    Returns the coefficient of determination of its prediction.
+    The prediction is based on Equation 4.
     
     Parameters
     ----------
-    sseq : numpy array of shape (nbsimu, S) with nbsimu being the number of network decompositions done.
-        Each row of this array contains the species richness along one decomposition.
+    sseq : numpy array of shape (nbsimu, S) with nbsimu being the number of 
+        network decompositions done.
+        Each row of this array contains the species richness along one 
+        decomposition.
     
     S : int
         Number of species
@@ -49,7 +53,7 @@ def R2deltaS(sseq, S, b, z):
     
     deltaS : float
         Predicted average number of extinctions occurring after the removal 
-        of one species (Equation 6).
+        of one species (Equation 4).
     
     r2lost : float
         Coefficient of determination for the predictions of 
@@ -63,12 +67,12 @@ def R2deltaS(sseq, S, b, z):
     
     """
     #### Number of species removed and lost ####
-    nbsimu, S = sseq.shape
-    removed = np.array(nbsimu*[np.arange(S)]) # Number of species removed
+    nbsimu = sseq.shape[0] # Each row is one decomposition
+    removed = np.array(nbsimu*[np.arange(sseq.shape[1])]) # Number of species removed
     lost = S-sseq # Number of species lost
 
-    #### Predicted slope of lost~removed (deltaS, Equation 6) ####
-    deltaS = 1 + (1-z)*((2/b)-1)
+    #### Predicted slope of lost~removed (deltaS) ####
+    deltaS = (1-z)*(2/b)+z # Equation 4
     
     #### Coefficient of determination ####
     obs = lost # Observed values
@@ -110,20 +114,20 @@ def robx(sseq, S, b, z, x = 0.5):
     Returns
     -------
     obs : float
-        Mean robustness over nbsimu network decompositions
+        Mean robustness over nbsimu network decompositions.
         
     var : float
-        Observed variance of robustness over nbsimu network decompositions
+        Observed variance of robustness over nbsimu network decompositions.
         
     pred : float
-        Predicted robustness based on Equation 7.
+        Predicted robustness based on Equation 5.
    
     """     
     # Fraction of species lost
     lost = 1-(sseq/S)
     # Robustness
     robs = np.sum(lost < x, axis=1)/S
-    # Prediction (Equation 7)
+    # Prediction (Equation 5 + cf. Methods for the ceil(.))
     pred = np.ceil(x*S)/(
                     S*((1-z)*(2/b)+z))
     res = namedtuple('Robres', ('obs', 'var', 'pred'))
