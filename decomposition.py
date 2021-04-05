@@ -3,10 +3,11 @@
 """
 
 Code accompanying the manuscript:
-"A new link-species relationship connects ecosystem structure and stability"
+"Reinterpreting the relationship between number of species and 
+number of links connects community structure and stability"
 
 -------
-v. 0.1 ; August 2020
+v. 0.2 ; March 2021
 -------
 
 For any question or comment, please contact:
@@ -31,7 +32,7 @@ from collections import namedtuple
 # Decompositions (in-silico extinction experiments)
 ###################################################
 
-def experiment(mat, nbsimu, directed, basal, triangle = "L"):
+def experiment(mat, nbsimu, independent = False):
     """
     Simulates the network decompositions (in-silico extinction experiments)
 
@@ -42,18 +43,10 @@ def experiment(mat, nbsimu, directed, basal, triangle = "L"):
         
     nbsimu : integer
         Number of simulations (decompositions) to perform.
-        
-    directed : bool
-        Either the decomposition should be performed on 
-        the directed graph (True) or not (False).
-        
-    basal : bool
-        Either basal species should undergo secondary extinction (True) 
-        or not (False).
-    
-    triangle : string
-        "L" if the links are oriented from j to i (i as row, j as column);
-        "U" if the links are oriented from i to j (i as row, j as column).
+            
+    independent : bool
+        Should the species having no incoming links be condidered as 
+        independant (i.e. not undergo secondary extinction)?
 
     Returns
     -------
@@ -61,7 +54,7 @@ def experiment(mat, nbsimu, directed, basal, triangle = "L"):
         Number of species in the network  
         
     L: integer
-        Number of links (edges) in the network
+        Number of links (edges) in the network (exluding canibalism)
         
     b: float
         Shape of the L~S relationship defined as log(L)/log(S/2)
@@ -79,49 +72,37 @@ def experiment(mat, nbsimu, directed, basal, triangle = "L"):
 
     """
     
-    #### Network structure ####
-    
-    S = mat.shape[0]# Number of species
-    L = np.sum(np.tril(mat!=0)) # Number of edges
+    #-------- Network structure -------- 
+    mat = np.tril(mat != 0) # Binary matrix of incoming links (low triangle)
+    S = mat.shape[0] # Number of species
+    L = np.sum(np.tril(mat, k = -1)) # Number of edges
     b = np.log(L)/np.log(0.5*S) # Shape of the L~S relationship
 
-    #### Wanted matrix and basal species ####
-   
-    if directed:
-        if triangle == "U":
-            mat = np.triu(mat!=0)
-        else:
-            mat = np.tril(mat!=0)
-        # Only lower triangle elements are used for the directed graph approach
-        # (unless it is specified that the upper triangle should be used)
-    
+    #-------- Wanted matrix and Independent species -------- 
     mat = trophorder(mat) # Order the species by "trophic" level in the matrix 
-    if directed :
-        z = sum(np.sum(mat, axis=1)==0)# Number of basal species
-    else :
-        z = 0 # No basal species if undirected graph
+    z = sum(np.sum(mat, axis=1)==0) # Number of independent species
+    # Independent sp. are considered as sp. having no incoming links
     
-    #### Initial values for each simulation ####
-    
+    #-------- Initial values for each simulation -------- 
     # Number of species
     sseq = [nbsimu*[S]] # All decompositions start with all species
     # Number of links
     lseq = [nbsimu*[L]] # All decompositions start with all links
     # Adjacency matrix
-    adj = np.array(nbsimu*[mat!=0]) # All decompositions start with the same adj
+    adj = np.array(nbsimu*[mat]) # All decompositions start with the same adj
     # Presence/Absence of species
-    species = np.ones((nbsimu,S)) # At the start, all species are present
+    species = np.ones((nbsimu, S)) # At the start, all species are present
     
-    #### Network decompositions ####
+    #-------- Network decompositions -------- 
     
-    while np.sum(adj)!= 0 : # Simulations run untill there is no species left
+    while np.sum(adj)!= 0 : # Simulations run untill there is no link left
         
         ### Random species removal ###
         species = removal(species, nbsimu) # One species removed in each simulation
         adj = cancel(adj, species) # Update of the adjacency matrices
        
         ### Secondary extinctions ###
-        species = extinction(species, adj, z, basal)
+        species = extinction(species, adj, z, independent)
         # Update of the presence/asbence of each species in each simulation
         
         ### Save decomposition sequence ###
@@ -133,8 +114,8 @@ def experiment(mat, nbsimu, directed, basal, triangle = "L"):
     sseq = np.array(sseq).T # Each row is a simulation, each column is a step
     lseq = np.array(lseq).T # Each row is a simulation, each column is a step
     result = namedtuple('experes', ('S', 'L', 'b', 'z', 'sseq', 'lseq'))
-    if basal:
-        z = 0 # For the following computations, z = 0 if basal True 
+    if not independent :
+        z = 0
     return(result(S, L, b, z/S, sseq, lseq))
 
 
@@ -170,14 +151,14 @@ def R2L(sseq, lseq, b):
         R2 of the predictions of L based on the log(L)~log(S) regression
     
     r2b : float
-        R2 of the predictions of L based on the L = b*log(b/2) equation
+        R2 of the predictions of L based on the log(L) = b*log(S/2) equation
     
     """
     
     #### Log-log regression-based approach ####
     lseqforl  = lseq[(sseq!=0) & (lseq!=0)] # Non-zero value only in log space
     sseqforl = sseq[(sseq!=0) & (lseq!=0)] # Non-zero value only in log space
-    paramL = linregress(np.log(sseqforl).flat, np.log(lseqforl).flat)
+    paramL = linregress(np.log(sseqforl).flat, np.log(lseqforl).flat) # Regression
     
     #### b-value based approach ####
     obs = np.log(lseqforl) # Observed values
@@ -196,18 +177,34 @@ def R2L(sseq, lseq, b):
 ##############################################################################
 
 def trophorder(mat):
-    # Getting each species trophic level
-    S = mat.shape[0]
+    """ 
+    Order the matrix based on "trophic level": the species having no incoming 
+    links are in the first rows/columns; the species having the highest number 
+    of incoming links is in the last row.
+    
+    Parameters
+    ----------
+    mat : numpy array of shape (S, S)
+        the binary matrix containing ones (if there is an incoming link) and zeros otherwise.
+    
+    Returns
+    -------
+    Numpy array of shape (S, S) containing the matrix 'mat' ordered.
+    
+    """
+    #------- Getting each species trophic level -------
+    S = mat.shape[0] # Number of species
     level = np.repeat(True, S)
-    troph = np.zeros((S,))
+    troph = np.zeros((S,)) # Each species starts at the level 0 (i.e. basal)
     for l in np.arange(S):
-        troph+=mat[:,level].sum(1) != 0
-        level = troph > l
-    #Ordering based on trophic level  
-    to_order = troph.argsort()
-    newmat = np.full_like(mat, 0)
-    for sp1 in np.arange(mat.shape[0]):
-            for sp2 in np.arange(mat.shape[0]):
+        troph += mat[:,level].sum(1) != 0 # Do species feed on the lower level?
+        level = troph > l 
+        # If a sp. feeds on lower level, it might belong to the next level
+    #------- Ordering based on trophic level -------
+    to_order = troph.argsort() # Order by the level
+    newmat = np.full_like(mat, 0) # New matrix to fill in
+    for sp1 in np.arange(mat.shape[0]): # For each row
+            for sp2 in np.arange(mat.shape[0]): # For each columns
                 newmat[sp1,sp2] = mat[to_order[sp1],to_order[sp2]]
     return(newmat)  
 
@@ -217,9 +214,9 @@ def removal(species, nbsimu):
 
     Parameters
     ----------
-    species : numpy array of shape (nbsimu, S) with S being the species richness
-        This array contains the information about the presence (1) 
-        or absence (0) of each species (columns) in each simulation (rows).
+    species : numpy array of shape (nbsimu, S) with nbsimu being the number of simulations (decompositions).
+        This array contains the information about the presence (1) or 
+        absence (0) of each species (columns) in each simulation (rows).
         
     nbsimu : integer
         Number of simulations to perform.
@@ -231,10 +228,10 @@ def removal(species, nbsimu):
     """
     for n in range(nbsimu): # For each simulation
         extant = np.where(species[n,:] != 0)[0] # Localise extant species
-        if len(extant)!=0: #If there is still at leats one species left
+        if len(extant) != 0: # If there is still at leats one species left
             # Random species switch from present to absent
-            toremove = np.random.permutation(extant)[0]
-            species[n, toremove] = 0
+            toremove = np.random.permutation(extant)[0] # Draw one random sp.
+            species[n, toremove] = 0 # Removal of the drawn species.
     return(species)
 
 
@@ -248,9 +245,9 @@ def cancel(adj, species):
     adj : numpy array of size (S,S) with S being the species richness
         Adjacency matrix.
         
-    species : numpy array of shape (nbsimu, S) with nbsimu being the number of simulations (decompositions)
-        This array contains the information about the presence (1) 
-        or absence (0) of each species (columns) in each simulation (rows).
+    species : numpy array of shape (nbsimu, S) with nbsimu being the number of simulations (decompositions).
+        This array contains the information about the presence (1) or 
+        absence (0) of each species (columns) in each simulation (rows).
         
     Returns
     -------
@@ -258,55 +255,64 @@ def cancel(adj, species):
     without the links that needed to be removed.
 
     """
-    cancelcol = np.repeat(species, species.shape[1], 
-                          axis=0).reshape(*adj.shape)
-    cancelrow = np.repeat(species, species.shape[1], 
-                          axis=1).reshape(*adj.shape)
+    # Row i full of 0 if the species i is extinct and full of 1 otherwise
+    cancelrow = np.repeat(species, species.shape[1],axis=1).reshape(*adj.shape)
+    # Column j full of 0 if the species j is extinct and full of 1 otherwise
+    cancelcol = np.repeat(species, species.shape[1],axis=0).reshape(*adj.shape)
     adj = cancelcol * cancelrow * adj
     return(adj)
 
-def extinction(species, adj, z, basal):
+def extinction(species, adj, z, independent):
     """
     Returns the presence/absence of each species after taking into account 
     the secondary extinctions.
     
     Parameters
     ----------
-    species : numpy array of shape (nbsimu, S) with nbsimu being the number of simulations (decompositions)
-        This array contains the information about the presence (1) 
-        or absence (0) of each species (columns) in each simulation (rows).
+    species : numpy array of shape (nbsimu, S) with nbsimu being the number
+        of simulations (decompositions). This array contains the information 
+        about the presence (1) or absence (0) of each species (columns) in 
+        each simulation (rows).
 
     adj : numpy array of size (S,S) with S being the species richness
         Adjacency matrix.
         
     z : float
-        Number of species which cannot undergo secondary extinction.
+        Number of species which might not undergo secondary extinction.
 
-     basal : bool
-        Either basal species should undergo secondary extinction (True) or not (False).
+    independent : bool
+        Should the species having no incoming links be condidered as 
+        independant (i.e. not undergo secondary extinction)?
 
     Returns
     -------
     Numpy array of shape (nbsimu, S) containing, for each decomposition (row), 
-    the presence (1) or absence (0) of each species (columns)
+    the presence (1) or absence (0) of each species (columns).
 
     """
-    #### Extinction of non-basal species ####
-      
+    #-------- Extinction of dependent species --------
+    # Basic rule for dependent species : 
+    # they need to be linked to another species to be part of the network
     left = np.sum(adj, axis = 2)[:,z:] # Number of neighbours left
-    Psurvival = (left > 0).astype(int) # Survival if at least one neighbour left
+    Psurvival = (left > 0).astype(int) # Survival if at least 1 neighbour
 
-    while np.sum(species[:,z:]!= Psurvival) != 0 :
-        (species[:,z:]) = (species[:,z:])*Psurvival # Removal of non surviving species
-        adj = cancel(adj, species) # Removal of non surviving links
-        left = np.sum(adj, axis=2)[:,z:] # Check for higher order extinctions
-        Psurvival = (left > 0).astype(int)
+    # Extinction cascade throught trophic levels
+    while np.sum(species[:,z:] != Psurvival) != 0 :
+        
+        ### Extinction(s) ###
+        # Removal of non surviving species
+        species[:,z:] = (species[:,z:])*Psurvival 
+        # Removal of non surviving links (i.e. links of the extinct species)
+        adj = cancel(adj, species)
+        
+        ### Check for higher order extinctions ###
+        left = np.sum(adj, axis=2)[:,z:] # Number of neighbours left
+        Psurvival = (left > 0).astype(int) # Survival if at least 1 neighbour
 
-    #### Exctinction of basal species ####
-    if basal:
-        interact = np.sum(cancel(adj, species),axis=1)[:, :z]
-        # If a basal species does not have neighbour left, it goes extinct
-        (species[:,:z])[interact == 0] = 0
+    #-------- Exctinction of independent species --------
+    if independent==False: # If there is no indepent species
+        # Species having no incoming link undergo secondary extinciton
+        interact = np.sum(cancel(adj, species),axis=1)[:, :z] # Outgoing links
+        (species[:,:z])[interact == 0] = 0 # Removed if no outgoing links left
         
     return(species)
-
