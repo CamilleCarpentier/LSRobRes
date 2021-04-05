@@ -22,12 +22,12 @@ The `main.py` file is divided into three parts, allowing to reproduce the result
 
   *The functions used in this section are defined in the `robustness.py` file.*
 
-* **Resilience - Robustness trade-off**
+* **Local stability - Robustness trade-off**
 
-	* Observed resilience (mean and variance)
-	* Predicted resilience
+	* Observed local stability (mean and variance)
+	* Predicted local stability
   
-  *The functions used in this section are defined in the `resilience.py` file.*
+  *The functions used in this section are defined in the `local_stability.py` file.*
 
 Written in Python 3.7.6 using 3 libraries: numpy 1.18.1, matplotlib 3.1.3 and collections.
 
