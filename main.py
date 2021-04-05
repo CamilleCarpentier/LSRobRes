@@ -209,17 +209,17 @@ plt.legend()
 
 
 ##############################################################################
-# Resilience - Robustness trade-off
+# Local stability - Robustness trade-off
 ##############################################################################
 # This part of the code relates to:
 # - Equations 7-8
 # - Figure 5
 
-import resilience
+import local_stability
 
-res_obs, res_var, res_pred = resilience.realpart(mat, inttype, nbsimu = 1000)
+res_obs, res_var, res_pred = local_stability.realpart(mat, inttype, nbsimu = 1000)
 
-# res_obs = Mean of the observed real part of the  rightmost eigenvalues.
+# res_obs = Mean of the observed real part of the rightmost eigenvalues.
 # res_var = Variance of the observed real part of the rightmost eigenvalues.
 # res_pred = Predicted real part of the  rightmost eigenvalue (Equation 7-8).
 
