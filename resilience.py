@@ -3,10 +3,11 @@
 """
 
 Code accompanying the manuscript:
-"A new link-species relationship connects ecosystem structure and stability"
+"Reinterpreting the relationship between number of species and 
+number of links connects community structure and stability"
 
 -------
-v. 0.1 ; August 2020
+v. 0.2 ; March 2021
 -------
 
 For any question or comment, please contact:
@@ -26,7 +27,7 @@ from collections import namedtuple
 # Main function
 ##############################################################################
 
-def realpart(mat, inttype, mu = 0, sigma2 = 1, d = 1, nbsimu = 1000):
+def realpart(mat, inttype, mu = 0, sigma2 = 1, d = 0, nbsimu = 1000):
     """ 
     Computes observed (mean and variance over nbsimu matrices) and 
     predicted real part of the rightmost eigenvalue for community matrices.
@@ -49,47 +50,40 @@ def realpart(mat, inttype, mu = 0, sigma2 = 1, d = 1, nbsimu = 1000):
         Variance of interaction strength (1 by default).
     
     d : float or list
-        Species self-regulation (diagonal elements of M = -d).
-        If d is a list: the diagonal elements are drawn from a uniform distribution bounded by d[0] and d[1].
+        Species self-regulation (diagonal elements of M = -d; 0 by default).
+        
     
     Returns
     -------
     obs : float
-        Mean of the observed real part of the  rightmost eigenvalue over nbsimu matrices.
+        Mean of the observed real part of the  rightmost eigenvalues over nbsimu matrices.
         
     var : float
-        Variance of the observed real part of the rightmost eigenvalue over nbsimu matrices. 
+        Variance of the observed real part of the rightmost eigenvalues over nbsimu matrices. 
         
     pred : float
-        Predicted real part of the  rightmost eigenvalue based on Equation 8-9.
+        Predicted real part of the rightmost eigenvalue based on Equation 7-8.
         
     """
 
-    #### Random matrix ####
+    #### Random community matrices ####
     
-    A = (mat!=0)# Adjacency matrix A
+    A = mat!=0 # Adjacency matrix A
     W = np.random.normal(mu,sigma2,
                          size=(nbsimu, *A.shape)) # Interaction strength matrix
     M = W*A[np.newaxis,:,:] # Community matrix M
        
-    if (inttype == "mutualistic") :
-        M = abs(M) # All values are positive (half-normal distribution)    
-    if (inttype == "trophic") :
+    if inttype == "mutualistic":
+        M = abs(M) # All values are positive (half-normal distribution)
+        
+    if inttype == "trophic":
         M = abs(np.tril(M)) - abs(np.triu(M)) 
         # Lower triangle elements are positive (effect of prey on predators)
         # Upper triangle elements are negative (effect of predators on prey)
     
-    
-    maskint = np.eye(mat.shape[1], dtype=bool) # Diagonal elements
-    if type(d) == int:
-        M[:,maskint] = -d # Species self-regulation set to -d
-    else: 
-        for n in range(nbsimu): # For each simulation
-            M[n,maskint] = -np.random.uniform(d[0],d[1], 
-                                                   size = mat.shape[0]) 
-            # Species self-regulation drawn between -d[0] et -d[1] 
-           
-            
+    maskint = np.eye(A.shape[1], dtype=bool) # Diagonal elements
+    M[:,maskint] = -d # Species self-regulation set to -d
+   
     #### Observed eigenvalues ####
             
     eigv,eigvect = np.linalg.eig(M) # Eigenvalues and eigenvectors
@@ -98,7 +92,7 @@ def realpart(mat, inttype, mu = 0, sigma2 = 1, d = 1, nbsimu = 1000):
     #### Predicted eigenvalues ####
     
     S = A.shape[0] # Number of species
-    L = np.sum(np.tril(A)) # Number of links
+    L = np.sum(np.tril(A, k=-1)) # Number of links
     b = np.log(L)/np.log(0.5*S) # Shape of the L~S relationship
     alpha = sum(np.sum(np.tril(A), 
                        axis=1)==0)/S # Proportion of the first partition
@@ -110,7 +104,7 @@ def realpart(mat, inttype, mu = 0, sigma2 = 1, d = 1, nbsimu = 1000):
 # 'Private' function
 ##############################################################################
 
-def predEig(S, b, inttype, alpha, mu=0, sigma2=1, d=1, rho=(2/np.pi)):
+def predEig(S, b, inttype, alpha, mu=0, sigma2=1, d = 0, rho=(2/np.pi)):
     """
     Computes the predicted real part of the rightmost eigenvalue.
     
@@ -135,28 +129,29 @@ def predEig(S, b, inttype, alpha, mu=0, sigma2=1, d=1, rho=(2/np.pi)):
         Variance of interaction strength (1 by default).
     
     d : float or list
-        Species self-regulation (diagonal elements of M = -d).
-        If d is a list: the diagonal elements are drawn from a uniform distribution bounded by d[0] and d[1].
+        Species self-regulation (diagonal elements of M = -d; 0 by default).
 
     rho : float
         Correlation coefficient of pairwise interactions.
     
     Returns
     -------
-    Predicted real part of the rightmost eigenvalue based on Equation 8-9.
+    Predicted real part of the rightmost eigenvalue based on Equation 7-8.
     
     Notes
     ----------
-    The explanations of the formulas are available in Supporting Equations 2.
+    Explanations are available in the Methods and in Supplementary Equations 4.
     """
+    
+    #### Connectance ####
     
     C = 2**(1-b)*S**(b-2) # Connectance of the community matrix
     
     #### Trophic networks ####
     
     if inttype=="trophic":
-        eig = -d + (1-rho)*((sigma2*S*C)**0.5) # Equation 8
-        return(eig)
+        eigP = -d + (1-rho)*((sigma2*S*C)**0.5) # Equation 7
+        return(eigP)
     
     #### Mutualistic networks ####
     
@@ -169,16 +164,25 @@ def predEig(S, b, inttype, alpha, mu=0, sigma2=1, d=1, rho=(2/np.pi)):
         
         ### Between-subsytems metrics ###
         
-        Cb = C/(2*alpha*(1-alpha))# Connectance
-        varb = Cb*(sigma2h+(1-Cb)*muh**2)
-        rhob = (rho*sigma2h+(1-Cb)*muh**2
-                )/(sigma2h+(1-Cb)*muh**2)# Correlation of pairwise interactions
+        Cb = C/(2*alpha*(1-alpha))# Between-subsystem connectance 
+       
+        mub = Cb*muh # Between-subsystem mean 
         
-        # Eigenvalues ellipse
-        center = S*varb*rhob
-        xaxis = S*varb*(alpha*(1-alpha))**0.5*(1+rhob**2)
-        bulk = -d+(center + xaxis)**0.5
-        outlier = (S*C*muh)/(4*alpha*(1-alpha))**0.5
-        eig = np.max([bulk, outlier],axis=0) 
-     
-        return(eig)
+        varb = Cb*(sigma2h+(1-Cb)*muh**2) # Between-subsystem variance
+        
+        rhob = (rho*sigma2h+(1-Cb)*muh**2
+                )/(sigma2h+(1-Cb)*muh**2)# Between-subsystem correlation
+        
+        ### Bulk ###
+        center = S*varb*rhob # Center
+        xaxis = S*varb*((alpha*(1-alpha))**0.5)*(1+rhob**2) # Radius
+        bulk = (center + xaxis)**0.5 # Bulk
+        
+        ### outlier ###
+        lambdaD1 = S*mub*(alpha*(1-alpha))**0.5
+        outlier = lambdaD1+((rho*S*varb)/lambdaD1)
+        
+        ### Eigenvalue ###
+        eigP = -d +np.max([bulk, outlier],axis=0)
+        
+    return(eigP)  
