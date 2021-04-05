@@ -3,10 +3,11 @@
 """
 
 Code accompanying the manuscript:
-"A new link-species relationship connects ecosystem structure and stability"
+"Reinterpreting the relationship between number of species and 
+number of links connects community structure and stability"
 
 -------
-v. 0.1 ; August 2020
+v. 0.2 ; March 2021
 -------
 
 For any question or comment, please contact:
@@ -21,7 +22,6 @@ Center for Complex Systems, Namur.
 
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 ##############################################################################
 # Data and parameters
@@ -39,7 +39,8 @@ mat = np.array([[0,0,0,1,0,0],
 # The lower triangle of mat should contain the incoming links:
 # aij will be 1 when a link comes from j and goes to i
 # (i being the row and j being the column).
-# example: the 4th species eats the 1st one (the link is coming from 1st to 4th)
+# example: here, the 4th species eats the 1st species 
+# (the link is coming from 1st to 4th)
 # while the 5th species eats the 2nd, the 3rd, the 4th species.
 
 
@@ -52,24 +53,25 @@ mat = np.array([[0,0,0,1,0,0],
 
 inttype = "trophic" # Or "mutualistic".
 
-directed = True # Should the decomposition be based on the directed graph:
-# True: directed (lower triangle only, containing the incoming links); 
-# False: undirected (full matrix).
+independent = True # Should the species having no incoming links be condidered 
+# as independant (i.e. not undergo secondary extinction)?
+# False: All species might undergo secondary extinctions; 
+# True: Species having no incoming links do not undergo secondary extinciton.
 
-basal = False # Do basal species undergo secondary extinctions:
-# True: basal species go extinct when no neighbour left; 
-# False: they remain in the network (unless randomly removed).
-
-nbsimu = 10000 # Number of different decompositions to perform.
-
-
+nbsimu = 10000 # Number of different decompositions (simulations) to perform.
 
 ##############################################################################
-# A new, network-specific approach
+# Network specific L~S relationship
 ##############################################################################
-# Note that the Figure 2 presented in the manuscript is based on the directed 
-# graph with basal secondary extinctions (basal = True)
-# while the example given here is without secondary extinction (basal = False).
+# This part of the code relates to:
+# - Equations 1-2
+# - Figure 1
+# - Extended Data Figure 1-2
+
+# Note that the Figure 1 presented in the manuscript consider that all species
+# undergo secondary extension (scenario 1 : independent = False) while the 
+# example given here is without secondary extinction for the basal species
+# (independant = True).
 
 import decomposition
 
@@ -77,12 +79,12 @@ import decomposition
 # Decompositions (in-silico extinction experiments)
 ###################################################
 
-S, L, b, z, sseq, lseq = decomposition.experiment(mat, nbsimu, directed, basal)
+S, L, b, z, sseq, lseq = decomposition.experiment(mat, nbsimu, independent)
 
 # S = Number of species.
 # L = Number of links.
-# b = Shape of the L~S relationship.
-# z = Proportion of basal species.
+# b = Shape of the L~S relationship (based on Equation 2).
+# z = Proportion of independent species.
 # sseq = Number of species along each decomposition (row).
 # lseq = Number of links along each decomposition (row).
 
@@ -94,18 +96,21 @@ breg, areg, r2reg, r2b = decomposition.R2L(sseq, lseq, b)
 
 # breg = Estimation of b (from L = a * S^b) based on log-log regression.
 # areg = Estimation of a (from L = a * S^b) based on log-log regression.
-# r2reg = R2 of the prediction of lseq along sseq based on regression.
-# r2b = R2 of the prediction of lseq along sseq based on the Equation 1.
+# r2reg = R2 of the prediction of lseq along sseq (in log-space) based 
+#         on regression.
+# r2b = R2 of the prediction of lseq along sseq (in log-space) based 
+#       on the Equation 1.
 
 print(r2reg, r2b)
 # Computing r2reg et r2b for multiple networks allows to obtain
-#                                                    Extended Data Figure 1.
+# Extended Data Figure 1.
 
-# Figure 2 (equivalent)
+# Figure 1 (equivalent)
 #######################
 
 #### Unique combinaison in the L~S plane ####
-dots, likely = np.unique(tuple([sseq.flatten(), lseq.flatten()]), 
+dots, likely = np.unique(tuple([sseq.flatten(), 
+                                lseq.flatten()]), 
                           axis=1, return_counts=True)
 likely[0] = nbsimu
 
@@ -128,7 +133,10 @@ plt.legend()
 ##############################################################################
 # Predicting robustness
 ##############################################################################
-
+# This part of the code relates to:
+# - Equations 3-5
+# - Figure 2-3
+# - Extended Data Figure 3a
 
 import robustness
 
@@ -138,22 +146,22 @@ import robustness
 
 deltaS, r2lost, lost, removed = robustness.R2deltaS(sseq, S, b, z)
 
-# deltaS = Predicted average number of extinctions  after one removal (Equation 6).
+# deltaS = Predicted average number of extinctions after one removal (Eq. 4).
 # r2lost = R2 of the predictions of the number of species lost 
-#               based on the number of species removed using deltaS.    
+#          based on the number of species removed using deltaS.    
 # lost = Number of species lost along each decomposition (row).
 # removed = Number of species removed along each decomposition (row).
     
 print(r2lost) 
-# Computing r2lost for multiple networks allows to obtain 
-#                                   Extended Data Figure 2b,c,d.
+# Computing r2lost for multiple networks allows to obtain Figure 2c.
 
 
-# Extended Data Figure 2a
+# Figure 2a (equivalent)
 ##########################
 
 #### Unique combinaison in the lost~removed plane ####
-dots, likely = np.unique(tuple([removed.flatten(), lost.flatten()]), 
+dots, likely = np.unique(tuple([removed.flatten(), 
+                                lost.flatten()]), 
                           axis=1, return_counts=True)
 
 #### Dots with size proportional to their likelihood in the lost~removed plane ####
@@ -164,6 +172,8 @@ plt.plot(np.linspace(0,S,S*10), deltaS*np.linspace(0,S,S*10),
          c = "black", label = "Predicted")
 plt.xlabel("Number of species removed (r)")
 plt.ylabel("Number of species lost (n)")
+plt.axhline(0.5*S, color = "black",
+            linestyle = "dotted") # 50% of species lost
 plt.legend()
 
 
@@ -174,7 +184,7 @@ rob_obs, rob_var, rob_pred = robustness.robx(sseq, S, b, z, x=0.5)
 
 # rob_obs = Mean robustness over nbsimu network decompositions.   
 # rob_var = Observed variance of robustness over nbsimu network decompositions.
-# rob_pred = Predicted robustness (Equation 7).
+# rob_pred = Predicted robustness (Equation 5).
 
 print(rob_obs, rob_pred)
 # Computing the rob_obs for multiple networks allows to obtain Figure 3.
@@ -184,8 +194,8 @@ print(rob_obs, rob_pred)
 ##########################
 xs = np.round(np.linspace(0.01,1,S),2) # Various robustness threshold
 robs = []
-for x in xs:
-    robs.append([*robustness.robx(sseq, S, b, z, x)])
+for x in xs: # For each threshold
+    robs.append([*robustness.robx(sseq, S, b, z, x)]) # Compute robustness
 robs = np.array(robs)  
 plt.errorbar(xs, robs[:,0], 
              yerr = robs[:,1]**0.5/2,
@@ -195,12 +205,15 @@ plt.xlabel("x")
 plt.ylabel("Robustness at threshold x")
 plt.legend()
 # Computing rob_obs for multiple networks allows to obtain 
-#                                                   Extended Data Figure 3b.
+# Extended Data Figure 3b.
 
 
 ##############################################################################
-# A Resilience - Robustness trade-off
+# Resilience - Robustness trade-off
 ##############################################################################
+# This part of the code relates to:
+# - Equations 7-8
+# - Figure 5
 
 import resilience
 
@@ -208,9 +221,9 @@ res_obs, res_var, res_pred = resilience.realpart(mat, inttype, nbsimu = 1000)
 
 # res_obs = Mean of the observed real part of the  rightmost eigenvalues.
 # res_var = Variance of the observed real part of the rightmost eigenvalues.
-# res_pred = Predicted real part of the  rightmost eigenvalue (Equation 8-9).
+# res_pred = Predicted real part of the  rightmost eigenvalue (Equation 7-8).
 
 print(res_obs, res_pred)
-# Computing res_obs for multiple networks allows to obtain:
-            # The R2 of Resilience~b;
-            # Figure 4.
+# Computing res_obs and res_pred for multiple networks allows to obtain:
+# - The R2 of Resilience~b;
+# - Figure 5.
