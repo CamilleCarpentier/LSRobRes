@@ -45,8 +45,8 @@ def experiment(mat, nbsimu, independent = False):
         Number of simulations (decompositions) to perform.
             
     independent : bool
-        Should the species having no incoming links be condidered as 
-        independant (i.e. not undergo secondary extinction)?
+        Should the species having no incoming links be considered as 
+        independent (i.e. not undergo secondary extinction)?
 
     Returns
     -------
@@ -54,7 +54,7 @@ def experiment(mat, nbsimu, independent = False):
         Number of species in the network  
         
     L: integer
-        Number of links (edges) in the network (exluding canibalism)
+        Number of links (edges) in the network (excluding cannibalism)
         
     b: float
         Shape of the L~S relationship defined as log(L)/log(S/2)
@@ -95,7 +95,7 @@ def experiment(mat, nbsimu, independent = False):
     
     #-------- Network decompositions -------- 
     
-    while np.sum(adj)!= 0 : # Simulations run untill there is no link left
+    while np.sum(adj)!= 0 : # Simulations run until there is no link left
         
         ### Random species removal ###
         species = removal(species, nbsimu) # One species removed in each simulation
@@ -103,7 +103,7 @@ def experiment(mat, nbsimu, independent = False):
        
         ### Secondary extinctions ###
         species = extinction(species, adj, z, independent)
-        # Update of the presence/asbence of each species in each simulation
+        # Update of the presence/absence of each species in each simulation
         
         ### Save decomposition sequence ###
         sseq.append(np.sum(species, axis=1)) # Storage of the number of species
@@ -281,8 +281,8 @@ def extinction(species, adj, z, independent):
         Number of species which might not undergo secondary extinction.
 
     independent : bool
-        Should the species having no incoming links be condidered as 
-        independant (i.e. not undergo secondary extinction)?
+        Should the species having no incoming links be considered as 
+        independent (i.e. not undergo secondary extinction)?
 
     Returns
     -------
@@ -296,7 +296,7 @@ def extinction(species, adj, z, independent):
     left = np.sum(adj, axis = 2)[:,z:] # Number of neighbours left
     Psurvival = (left > 0).astype(int) # Survival if at least 1 neighbour
 
-    # Extinction cascade throught trophic levels
+    # Extinction cascade through trophic levels
     while np.sum(species[:,z:] != Psurvival) != 0 :
         
         ### Extinction(s) ###
@@ -309,9 +309,9 @@ def extinction(species, adj, z, independent):
         left = np.sum(adj, axis=2)[:,z:] # Number of neighbours left
         Psurvival = (left > 0).astype(int) # Survival if at least 1 neighbour
 
-    #-------- Exctinction of independent species --------
-    if independent==False: # If there is no indepent species
-        # Species having no incoming link undergo secondary extinciton
+    #-------- Extinction of independent species --------
+    if independent==False: # If there is no independent species
+        # Species having no incoming link undergo secondary extinction
         interact = np.sum(cancel(adj, species),axis=1)[:, :z] # Outgoing links
         (species[:,:z])[interact == 0] = 0 # Removed if no outgoing links left
         
