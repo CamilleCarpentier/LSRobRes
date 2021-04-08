@@ -1,5 +1,9 @@
 # Code for the manuscript "Reinterpreting the relationship between number of species and number of links connects community structure and stability"
 
+
+[![DOI](https://zenodo.org/badge/283973813.svg)](https://zenodo.org/badge/latestdoi/283973813)
+
+
 The file `main.py` contains a guide to use the code. 
 This code is designed such that any network could be analysed, as long as it is represented by its adjacency matrix (an example is given in `main.py`)
 
