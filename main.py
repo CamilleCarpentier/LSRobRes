@@ -41,7 +41,7 @@ mat = np.array([[0,0,0,1,0,0],
 # (i being the row and j being the column).
 # example: here, the 4th species eats the 1st species 
 # (the link is coming from 1st to 4th)
-# while the 5th species eats the 2nd, the 3rd, the 4th species.
+# while the 5th and 6th species eat the 2nd, the 3rd, the 4th species.
 
 
 # The run time of this example goes up to 1 minute.
@@ -53,10 +53,10 @@ mat = np.array([[0,0,0,1,0,0],
 
 inttype = "trophic" # Or "mutualistic".
 
-independent = True # Should the species having no incoming links be condidered 
-# as independant (i.e. not undergo secondary extinction)?
+independent = True # Should the species having no incoming links be considered 
+# as independent (i.e. not undergo secondary extinction)?
 # False: All species might undergo secondary extinctions; 
-# True: Species having no incoming links do not undergo secondary extinciton.
+# True: Species having no incoming links do not undergo secondary extinction.
 
 nbsimu = 10000 # Number of different decompositions (simulations) to perform.
 
@@ -71,7 +71,7 @@ nbsimu = 10000 # Number of different decompositions (simulations) to perform.
 # Note that the Figure 1 presented in the manuscript consider that all species
 # undergo secondary extension (scenario 1 : independent = False) while the 
 # example given here is without secondary extinction for the basal species
-# (independant = True).
+# (independent = True).
 
 import decomposition
 
