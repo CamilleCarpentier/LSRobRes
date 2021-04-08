@@ -6,7 +6,7 @@ Code accompanying the manuscript:
 number of links connects community structure and stability"
 
 -------
-v. 0.2 ; March 2021
+v1.0.0 (First release)
 -------
 
 For any question or comment, please contact:
