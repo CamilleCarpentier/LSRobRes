@@ -41,7 +41,7 @@ def realpart(mat, inttype, mu = 0, sigma2 = 1, d = 0, nbsimu = 1000):
     
     inttype : string
         Type of the interactions (either 'trophic' or 'mutualistic')
-        If 'trophic', the aij and aji elments will be set by the function to 1 and -1.
+        If 'trophic', the aij and aji elements will be set by the function to 1 and -1.
     
     mu : float
         Mean interaction strength (0 by default).
